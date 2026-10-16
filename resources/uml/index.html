@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline' ${cspSource}; img-src data: ${cspSource};">
+<script src="${jointUri}"></script>
+<title>VIRTUAL UML</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --app-radius: 10px;
+  --app-radius-sm: 8px;
+  --app-shadow: 0 8px 24px rgba(0,0,0,0.28);
+  --app-border: var(--vscode-panel-border, rgba(128,128,128,0.25));
+  --app-surface: var(--vscode-sideBar-background, #1e1e1e);
+  --app-elevated: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #252526));
+  --app-text: var(--vscode-sideBar-foreground, #cccccc);
+  --app-muted: var(--vscode-descriptionForeground, #9aa0a6);
+  --app-input: var(--vscode-input-background, #2d2d2d);
+  --accent: var(--vscode-button-background, #4f8cff);
+  --accent-hover: var(--vscode-button-hoverBackground, #6ea0ff);
+  --accent-ring: rgba(79,140,255,0.28);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 13px; background: var(--app-surface); color: var(--app-text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+#toolbar { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--app-border); flex-wrap: wrap; align-items: center; background: var(--app-surface); }
+#toolbar button { background: var(--accent); color: var(--vscode-button-foreground, #fff); border: none; padding: 5px 12px; cursor: pointer; border-radius: 999px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em; display: inline-flex; align-items: center; gap: 5px; transition: background 0.16s ease, transform 0.08s ease, box-shadow 0.16s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+#toolbar button:hover { background: var(--accent-hover); box-shadow: 0 2px 8px rgba(0,0,0,0.22); }
+#toolbar button:active { transform: translateY(1px); }
+#toolbar button.secondary { background: var(--vscode-button-secondaryBackground, #3a3d41); color: var(--vscode-button-secondaryForeground, #d5d5d5); border: 1px solid var(--app-border); box-shadow: none; }
+#toolbar button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground, #45494e); }
+#toolbar button:disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; box-shadow: none; }
+#toolbar span.sep { width: 1px; height: 18px; background: var(--app-border); margin: 0 3px; font-size: 0; overflow: hidden; }
+.zoom-group { display: inline-flex; align-items: center; gap: 2px; background: var(--app-input); padding: 2px; border-radius: 999px; border: 1px solid var(--app-border); }
+.zoom-group button { padding: 3px 9px !important; font-size: 12px !important; background: transparent !important; color: var(--app-text) !important; border: none !important; box-shadow: none !important; border-radius: 999px !important; }
+.zoom-group button:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.08)) !important; }
+#zoomLevel { font-size: 11px; min-width: 40px; text-align: center; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.toggle-chip { font-size: 11px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 3px 10px 3px 7px; border-radius: 999px; background: var(--app-input); border: 1px solid var(--app-border); user-select: none; transition: background 0.15s ease; }
+.toggle-chip:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.08)); }
+.toggle-chip input { -webkit-appearance: none; appearance: none; width: 26px; height: 15px; border-radius: 999px; background: rgba(128,128,128,0.55); position: relative; cursor: pointer; transition: background 0.16s ease; margin: 0; flex-shrink: 0; }
+.toggle-chip input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; transition: transform 0.16s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+.toggle-chip input:checked { background: var(--accent); }
+.toggle-chip input:checked::after { transform: translateX(11px); }
+#container { display: flex; flex: 1; overflow: hidden; }
+#sidebar { width: 264px; min-width: 190px; border-right: 1px solid var(--app-border); display: flex; flex-direction: column; overflow: hidden; background: var(--app-surface); }
+#search { margin: 8px; padding: 7px 11px; background: var(--vscode-input-background, #2d2d2d); color: var(--vscode-input-foreground, #ccc); border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); font-size: 12px; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+#search:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+#resourceList { flex: 1; overflow-y: auto; padding: 4px 6px 8px; }
+.section-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--app-muted); padding: 10px 6px 4px; letter-spacing: 0.08em; }
+.section-actions { display: flex; gap: 4px; padding: 0 6px 5px; }
+.section-actions button { font-size: 10.5px; padding: 2px 9px; background: var(--vscode-button-secondaryBackground, #3a3d41); color: var(--vscode-button-secondaryForeground, #ccc); border: none; cursor: pointer; border-radius: 999px; transition: background 0.14s ease; }
+.section-actions button:hover { background: var(--vscode-button-secondaryHoverBackground, #45494e); }
+.item-row { display: flex; align-items: center; gap: 7px; padding: 4px 8px; cursor: pointer; border-radius: 7px; transition: background 0.12s ease; }
+.item-row:hover { background: var(--vscode-list-hoverBackground, #37373d); }
+.item-row input { margin: 0; cursor: pointer; accent-color: var(--accent); }
+.item-row .label { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-row .badge { font-size: 9.5px; padding: 1px 6px; border-radius: 999px; color: #fff; font-weight: 700; letter-spacing: 0.04em; }
+.badge-APEX { background: #e6a700; }
+.badge-TRIGGER { background: #c77d00; }
+.badge-LWC { background: #2ea043; }
+#canvasWrap { flex: 1; overflow: hidden; position: relative; background: var(--app-surface); }
+#canvas { width: 100%; height: 100%; cursor: grab; }
+#statusBar { display: flex; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--app-border); font-size: 11px; color: var(--app-muted); align-items: center; background: var(--app-surface); }
+#statusBar > span { background: var(--app-input); border: 1px solid var(--app-border); padding: 1px 9px; border-radius: 999px; }
+#legend { display: none; position: absolute; top: 10px; right: 10px; background: var(--app-elevated); border: 1px solid var(--app-border); border-radius: var(--app-radius); padding: 12px 15px; font-size: 11px; z-index: 100; min-width: 170px; box-shadow: var(--app-shadow); }
+#legend.visible { display: block; animation: fadeIn 0.15s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+#legend h4 { margin: 0 0 9px; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; }
+.legend-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.legend-line { display: inline-block; width: 28px; height: 0; border-top-width: 2px; border-top-style: solid; flex-shrink: 0; }
+.legend-line.dashed { border-top-style: dashed; }
+.legend-arrow { display: inline-block; width: 0; height: 0; border-left: 6px solid; border-top: 4px solid transparent; border-bottom: 4px solid transparent; flex-shrink: 0; }
+.legend-arrow.diamond { border-left: 8px solid; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+#minimap { position: absolute; bottom: 10px; right: 10px; width: 180px; height: 120px; border: 1px solid var(--app-border); background: var(--app-elevated); border-radius: var(--app-radius); overflow: hidden; z-index: 99; cursor: pointer; box-shadow: var(--app-shadow); opacity: 0.94; }
+#minimap svg { width: 100%; height: 100%; }
+#minimap .viewport { fill: rgba(79,140,255,0.12); stroke: rgba(79,140,255,0.7); stroke-width: 1; }
+
+/* ---- Theme refinements ---- */
+html[data-theme='dark'] { --app-border: rgba(255,255,255,0.12); --accent-ring: rgba(79,140,255,0.35); }
+html[data-theme='light'] { --app-border: rgba(0,0,0,0.13); --accent-ring: rgba(0,120,212,0.25); }
+html[data-theme='dark'] body { background: #1e1e1e; color: #d4d4d4; }
+html[data-theme='light'] body { background: #f7f8fa; color: #1f1f1f; }
+html[data-theme='dark'] #search, html[data-theme='dark'] #tagSearch { background: #2a2d33; color: #e3e3e3; }
+html[data-theme='light'] #search, html[data-theme='light'] #tagSearch { background: #ffffff; color: #1f1f1f; }
+html[data-theme='dark'] #legend { background: rgba(37,37,38,0.96); }
+html[data-theme='light'] #legend { background: rgba(255,255,255,0.98); }
+html[data-theme='dark'] #minimap { background: rgba(22,23,27,0.92); }
+html[data-theme='light'] #minimap { background: rgba(245,246,248,0.94); }
+
+/* ---- Tag section ---- */
+#tagSection { margin: 0 8px 8px; }
+#tagHeader { display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 5px 2px; border-bottom: 1px solid var(--app-border); user-select: none; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--app-muted); }
+#tagHeader .chevron { display: inline-block; transition: transform 0.15s; font-size: 9px; width: 12px; text-align: center; }
+#tagHeader .chevron.open { transform: rotate(90deg); }
+#tagHeader .tag-count { margin-left: auto; font-weight: 500; text-transform: none; letter-spacing: 0; }
+#tagBody { display: flex; flex-direction: column; gap: 6px; padding: 8px 2px 2px; }
+#tagBody.hidden { display: none; }
+#tagRow { display: flex; gap: 5px; }
+#tagSearch { flex: 1; padding: 6px 10px; border-radius: var(--app-radius-sm); font-size: 12px; outline: none; }
+#tagSearch:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+#btnTagApply { padding: 6px 13px; background: var(--accent); color: var(--vscode-button-foreground, #fff); border: none; border-radius: var(--app-radius-sm); cursor: pointer; font-size: 12px; font-weight: 600; }
+#btnTagApply:hover { background: var(--accent-hover); }
+#tagMsg { display: none; font-size: 11px; color: var(--vscode-errorForeground, #f14c4c); }
+#tagChip { display: none; align-items: center; gap: 6px; font-size: 11px; padding: 3px 11px; border-radius: 999px; max-width: 100%; }
+#tagChip.visible { display: inline-flex; }
+html[data-theme='dark'] #tagChip { background: #1f4d7a; color: #dbeafe; }
+html[data-theme='light'] #tagChip { background: #dbeafe; color: #1e3a8a; }
+#tagChip .chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tagChip .chip-x { cursor: pointer; font-weight: bold; margin-left: 2px; opacity: 0.75; }
+#tagChip .chip-x:hover { opacity: 1; }
+
+/* ---- App bar / brand ---- */
+.brand { display: inline-flex; align-items: center; gap: 8px; padding: 0 6px 0 2px; margin-right: 2px; }
+.brand-logo { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: #fff; background: linear-gradient(135deg, #4f8cff, #a855f7); box-shadow: 0 2px 10px rgba(79,140,255,0.45); }
+.brand-logo svg { display: block; }
+.brand-title { font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
+#toolbar button svg { width: 14px; height: 14px; display: block; }
+.sep { display: inline-block; width: 1px; height: 18px; background: var(--app-border); margin: 0 3px; }
+
+/* ---- Custom scrollbars ---- */
+#resourceList::-webkit-scrollbar, #sidebar::-webkit-scrollbar { width: 10px; }
+#resourceList::-webkit-scrollbar-thumb, #sidebar::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+#resourceList::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.6); background-clip: content-box; }
+
+/* ---- Empty state ---- */
+#emptyState { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 24px; pointer-events: none; transition: opacity 0.2s ease; }
+#emptyState.hidden { display: none; }
+.empty-art { width: 96px; height: 96px; border-radius: 24px; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #4f8cff, #a855f7); box-shadow: 0 12px 40px rgba(79,140,255,0.35); animation: floaty 3.5s ease-in-out infinite; }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.empty-art svg { width: 44px; height: 44px; }
+.empty-title { font-size: 15px; font-weight: 700; }
+.empty-sub { font-size: 12px; color: var(--app-muted); max-width: 340px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <div class="brand">
+    <span class="brand-logo">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7.5" height="7.5" rx="2" opacity="0.95"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" opacity="0.55"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" opacity="0.55"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" opacity="0.95"/></svg>
+    </span>
+    <span class="brand-title">Virtual UML</span>
+  </div>
+  <span class="sep"></span>
+  <button id="btnAutoLayout" class="secondary" title="Disponi automaticamente i nodi a griglia">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    Auto Layout
+  </button>
+  <button id="btnFindRelated" class="secondary" title="Trova e aggiunge le entità correlate al nodo selezionato" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M9 6l6 6-6 6"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
+    Find Related
+  </button>
+  <span class="sep"></span>
+  <button id="btnToggleLegend" class="secondary" title="Mostra o nascondi la legenda">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+    Legend
+  </button>
+  <span class="sep"></span>
+  <div class="zoom-group">
+    <button id="btnZoomOut" class="secondary" title="Zoom Out">−</button>
+    <span id="zoomLevel">100%</span>
+    <button id="btnZoomIn" class="secondary" title="Zoom In">+</button>
+    <button id="btnZoomReset" class="secondary" title="Ripristina Zoom">⟲</button>
+  </div>
+  <span class="sep"></span>
+  <label class="toggle-chip" title="Mostra/nascondi modificatori e simboli di visibilità"><input type="checkbox" id="chkModifiers" checked> <span>Modifiers</span></label>
+  <label class="toggle-chip" title="Mostra/nascondi metodi"><input type="checkbox" id="chkMethods" checked> <span>Methods</span></label>
+  <label class="toggle-chip" title="Mostra/nascondi campi"><input type="checkbox" id="chkProperties" checked> <span>Fields</span></label>
+</div>
+<div id="container">
+  <div id="sidebar">
+    <input id="search" type="text" placeholder="Search..." />
+    <div id="tagSection">
+      <div id="tagHeader" title="Tag search">
+        <span class="chevron open" id="tagChevron">▶</span>
+        <span>Tags</span>
+        <span class="tag-count" id="tagCount"></span>
+      </div>
+      <div id="tagBody">
+        <div id="tagRow">
+          <input id="tagSearch" type="text" list="tagList" placeholder="Select by tag..." />
+          <button id="btnTagApply" title="Select all items with this tag">Apply</button>
+        </div>
+        <datalist id="tagList"></datalist>
+        <div id="tagChip"><span class="chip-label" id="chipLabel"></span><span class="chip-x" id="chipX">✕</span></div>
+        <div id="tagMsg"></div>
+      </div>
+    </div>
+    <div id="resourceList"></div>
+  </div>
+  <div id="canvasWrap">
+    <div id="canvas"></div>
+    <div id="emptyState">
+      <div class="empty-art">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="2.5" y="3" width="8" height="6" rx="1.8"/><rect x="13.5" y="15" width="8" height="6" rx="1.8"/><path d="M6.5 9v4.5a2 2 0 0 0 2 2h3"/><path d="M17.5 15v-3.5a2 2 0 0 0-2-2h-3"/></svg>
+      </div>
+      <div class="empty-title">Il tuo diagramma è vuoto</div>
+      <div class="empty-sub">Seleziona classi, trigger o componenti LWC dalla lista a sinistra per generare il grafico delle relazioni.</div>
+    </div>
+    <div id="legend">
+      <h4>Legend</h4>
+      <div class="legend-item"><span class="legend-line" style="border-color:#d4a017"></span><span class="legend-arrow" style="border-left-color:#d4a017"></span> extends (abstract)</div>
+      <div class="legend-item"><span class="legend-line" style="border-color:#e6a700"></span><span class="legend-arrow" style="border-left-color:#e6a700"></span> extends (concrete)</div>
+      <div class="legend-item"><span class="legend-line dashed" style="border-color:#58a6ff"></span><span class="legend-arrow" style="border-left-color:#58a6ff"></span> implements</div>
+      <div class="legend-item"><span class="legend-line dashed" style="border-color:#94a3b8"></span><span class="legend-arrow" style="border-left-color:#94a3b8"></span> dependency</div>
+      <div class="legend-item"><span class="legend-line" style="border-color:#a1a8b3;border-top-style:dotted"></span><span class="legend-arrow" style="border-left-color:#a1a8b3"></span> reference</div>
+      <hr style="border:none;border-top:1px solid var(--app-border);margin:8px 0">
+      <div class="legend-item"><span style="display:inline-block;width:14px;height:14px;background:#eef1f6;border:2px solid #94a3b8;border-radius:5px;flex-shrink:0"></span> Class</div>
+      <div class="legend-item"><span style="display:inline-block;width:14px;height:14px;background:#efe3fb;border:2px solid #8b5cf6;border-radius:5px;flex-shrink:0"></span> Abstract</div>
+      <div class="legend-item"><span style="display:inline-block;width:14px;height:14px;background:#dfeffc;border:2px solid #0ea5e9;border-radius:5px;flex-shrink:0"></span> Interface</div>
+      <div class="legend-item"><span style="display:inline-block;width:14px;height:14px;background:#fdf2d7;border:2px solid #f59e0b;border-radius:5px;flex-shrink:0"></span> Trigger</div>
+      <div class="legend-item"><span style="display:inline-block;width:14px;height:14px;background:#dbf3e4;border:2px solid #22c55e;border-radius:5px;flex-shrink:0"></span> LWC</div>
+      <hr style="border:none;border-top:1px solid var(--app-border);margin:8px 0">
+      <div style="font-size:11px;font-weight:700;margin-bottom:4px;color:var(--app-muted);text-transform:uppercase;letter-spacing:0.06em">Visibility</div>
+      <div class="legend-item"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;width:22px;color:var(--app-muted)">+</span> public</div>
+      <div class="legend-item"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;width:22px;color:var(--app-muted)">+g</span> global</div>
+      <div class="legend-item"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;width:22px;color:var(--app-muted)">-</span> private</div>
+      <div class="legend-item"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;width:22px;color:var(--app-muted)">#</span> protected</div>
+      <div class="legend-item"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;width:22px;color:var(--app-muted)">~</span> package</div>
+    </div>
+    <div id="minimap"></div>
+  </div>
+</div>
+<div id="statusBar">
+  <span id="nodeCount">0 nodes</span>
+  <span id="selectedCount">0 selected</span>
+</div>
+
+<script>
+var vscode = acquireVsCodeApi();
+
+var allItems = [];
+var selectedFiles = new Set();
+var graph = null;
+var paper = null;
+var minimapPaper = null;
+var viewportRect = null;
+var nodeElements = {};
+var jointReady = false;
+var pendingRender = null;
+var showModifiers = true;
+var showMethods = true;
+var showProperties = true;
+
+var selectedNodeId = null;
+var selectedCellModel = null;
+var originalStroke = null;
+var originalStrokeWidth = null;
+var currentNodesCount = 0;
+
+function deselectCurrentNode() {
+  if (selectedCellModel && originalStroke !== null) {
+    selectedCellModel.attr('body/stroke', originalStroke);
+    selectedCellModel.attr('body/strokeWidth', originalStrokeWidth);
+  }
+  selectedNodeId = null;
+  selectedCellModel = null;
+  originalStroke = null;
+  originalStrokeWidth = null;
+  var btn = document.getElementById('btnFindRelated');
+  if (btn) btn.disabled = true;
+  var countEl = document.getElementById('nodeCount');
+  if (countEl) countEl.textContent = currentNodesCount + ' nodes';
+}
+
+function selectNode(model) {
+  if (!model || model.isLink()) return;
+  var id = model.get('filePath');
+  if (!id) return;
+
+  if (selectedCellModel && selectedCellModel !== model) {
+    deselectCurrentNode();
+  }
+
+  selectedNodeId = id;
+  selectedCellModel = model;
+  originalStroke = model.attr('body/stroke') || '#999';
+  originalStrokeWidth = model.attr('body/strokeWidth') || 1.6;
+
+  model.attr('body/stroke', '#4f8cff');
+  model.attr('body/strokeWidth', 3);
+
+  var btn = document.getElementById('btnFindRelated');
+  if (btn) btn.disabled = false;
+
+  var countEl = document.getElementById('nodeCount');
+  if (countEl) {
+    var label = model.get('nodeLabel') || 'entità';
+    countEl.textContent = 'Selected: ' + label + ' (click Find Related or double-click to expand)';
+  }
+}
+
+var tagMap = {};
+var activeTag = null;
+
+var currentTheme = 'light';
+var lastRender = null;
+
+function diagramBackground() {
+  return currentTheme === 'dark' ? '#16171b' : '#f6f7f9';
+}
+
+function gridColor() {
+  return currentTheme === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.09)';
+}
+
+function applyTheme(theme) {
+  currentTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = currentTheme;
+  if (paper) {
+    try {
+      paper.drawBackground({ color: diagramBackground() });
+      paper.setGrid({ name: 'dot', args: { color: gridColor(), thickness: 1 } });
+    } catch (e) { /* grid API fallback */ }
+    if (lastRender) {
+      renderDiagram(lastRender.nodes, lastRender.relationships, showModifiers, showMethods, showProperties);
+    }
+  }
+}
+applyTheme('light');
+
+function updateEmptyState(count) {
+  var el = document.getElementById('emptyState');
+  if (!el) return;
+  if (count > 0) { el.classList.add('hidden'); }
+  else { el.classList.remove('hidden'); }
+}
+
+function renderTagList() {
+  var datalist = document.getElementById('tagList');
+  datalist.innerHTML = '';
+  var countEl = document.getElementById('tagCount');
+  var keys = Object.keys(tagMap).sort();
+  if (keys.length === 0) {
+    countEl.textContent = '';
+    return;
+  }
+  countEl.textContent = keys.length + ' tag' + (keys.length > 1 ? 's' : '');
+  for (var i = 0; i < keys.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = keys[i];
+    opt.label = keys[i] + ' (' + tagMap[keys[i]].length + ')';
+    datalist.appendChild(opt);
+  }
+}
+
+function showTagMsg(text) {
+  var el = document.getElementById('tagMsg');
+  el.textContent = text;
+  el.style.display = text ? 'block' : 'none';
+}
+
+function updateChip() {
+  var chip = document.getElementById('tagChip');
+  if (activeTag) {
+    document.getElementById('chipLabel').textContent = 'Tag: ' + activeTag + ' (' + (tagMap[activeTag] ? tagMap[activeTag].length : 0) + ')';
+    chip.classList.add('visible');
+  } else {
+    chip.classList.remove('visible');
+  }
+  applyRowFilter();
+}
+
+function setActiveTag(key) {
+  activeTag = key;
+  updateChip();
+}
+
+function clearTag() {
+  setActiveTag(null);
+}
+
+function applyTag(raw) {
+  var key = String(raw || '').trim().toLowerCase();
+  var input = document.getElementById('tagSearch');
+  showTagMsg('');
+  if (!key) {
+    input.value = '';
+    if (activeTag) { setActiveTag(null); }
+    return;
+  }
+  var ids = tagMap[key];
+  if (!ids || ids.length === 0) {
+    showTagMsg('Tag "' + key + '" non trovato');
+    return;
+  }
+  setActiveTag(key);
+  input.value = '';
+  var missing = [];
+  for (var i = 0; i < ids.length; i++) {
+    if (!selectedFiles.has(ids[i])) { missing.push(ids[i]); }
+  }
+  if (missing.length > 0) {
+    for (var j = 0; j < missing.length; j++) { selectedFiles.add(missing[j]); }
+    vscode.postMessage({ type: 'toggleItems', ids: ids, checked: true });
+  }
+  refreshCheckboxes();
+  updateChip();
+}
+
+function visSymbol(v) {
+  return v === 'global' ? '+g' : v === 'private' ? '-' : v === 'protected' ? '#' : v === 'package' ? '~' : '+';
+}
+
+/* Modern card palettes per entity kind (theme aware). */
+var NODE_PALETTES = {
+  light: {
+    class:     { top: '#ffffff', bottom: '#eef1f6', stroke: '#94a3b8', text: '#1e293b', title: '#334155' },
+    abstract:  { top: '#f8f2ff', bottom: '#efe3fb', stroke: '#8b5cf6', text: '#4c1d95', title: '#5b21b6' },
+    interface: { top: '#eef8ff', bottom: '#dfeffc', stroke: '#0ea5e9', text: '#075985', title: '#0369a1' },
+    trigger:   { top: '#fffaf0', bottom: '#fdf2d7', stroke: '#f59e0b', text: '#92400e', title: '#b45309' },
+    lwc:       { top: '#f0fbf4', bottom: '#dbf3e4', stroke: '#22c55e', text: '#166534', title: '#15803d' },
+  },
+  dark: {
+    class:     { top: '#2c3039', bottom: '#24272e', stroke: '#5b6472', text: '#e5e7eb', title: '#f1f5f9' },
+    abstract:  { top: '#342b42', bottom: '#282235', stroke: '#a78bfa', text: '#e9d5ff', title: '#ddd6fe' },
+    interface: { top: '#21323f', bottom: '#1b2833', stroke: '#38bdf8', text: '#bae6fd', title: '#e0f2fe' },
+    trigger:   { top: '#3c341f', bottom: '#2f2917', stroke: '#fbbf24', text: '#fde68a', title: '#fef3c7' },
+    lwc:       { top: '#1f3828', bottom: '#192e21', stroke: '#4ade80', text: '#bbf7d0', title: '#dcfce7' },
+  },
+};
+
+function nodePalette(kind, isAbstract) {
+  var set = NODE_PALETTES[currentTheme] || NODE_PALETTES.light;
+  var key = kind === 'abstract' ? 'abstract' : kind;
+  if (kind !== 'lwc' && kind !== 'trigger' && kind !== 'interface' && isAbstract) { key = 'abstract'; }
+  return set[key] || set.class;
+}
+
+function arrowStyle(kind) {
+  var dark = currentTheme === 'dark';
+  var canvas = dark ? '#16171b' : '#f6f7f9';
+  var depColor = dark ? '#8b93a1' : '#94a3b8';
+  var refColor = dark ? '#6b7280' : '#a1a8b3';
+  var styles = {
+    extends_abstract: {
+      marker: { d: 'M 14 -7 L 0 0 L 14 7 z', fill: canvas, stroke: '#d4a017', 'stroke-width': 2 },
+      conn: { stroke: '#d4a017', 'stroke-width': 2, 'stroke-dasharray': 'none' },
+      label: 'extends', labelColor: '#d4a017',
+    },
+    extends_concrete: {
+      marker: { d: 'M 14 -7 L 0 0 L 14 7 z', fill: '#e6a700', stroke: '#e6a700', 'stroke-width': 1.5 },
+      conn: { stroke: '#e6a700', 'stroke-width': 2, 'stroke-dasharray': 'none' },
+      label: 'extends', labelColor: '#e6a700',
+    },
+    implements: {
+      marker: { d: 'M 14 -7 L 0 0 L 14 7 z', fill: canvas, stroke: '#58a6ff', 'stroke-width': 2 },
+      conn: { stroke: '#58a6ff', 'stroke-width': 1.5, 'stroke-dasharray': '8 5' },
+      label: 'implements', labelColor: '#58a6ff',
+    },
+    dependency: {
+      marker: { d: 'M 10 -5 L 0 0 L 10 5 z', fill: depColor, stroke: depColor, 'stroke-width': 1 },
+      conn: { stroke: depColor, 'stroke-width': 1.5, 'stroke-dasharray': '6 4' },
+      label: '', labelColor: '',
+    },
+    reference: {
+      marker: { d: 'M 10 -5 L 0 0 L 10 5 z', fill: refColor, stroke: refColor, 'stroke-width': 1 },
+      conn: { stroke: refColor, 'stroke-width': 1, 'stroke-dasharray': '3 3' },
+      label: '', labelColor: '',
+    },
+  };
+  return styles[kind] || styles.dependency;
+}
+
+function resizePaper() {
+  if (!paper) return;
+  var el = document.getElementById('canvasWrap');
+  var w = el.offsetWidth || 800;
+  var h = el.offsetHeight || 600;
+  paper.setDimensions(w, h);
+}
+
+function injectDiagramStyles() {
+  if (document.getElementById('diagramStyles')) return;
+  var s = document.createElement('style');
+  s.id = 'diagramStyles';
+  s.textContent =
+    '.joint-element { filter: drop-shadow(0 3px 7px rgba(0,0,0,0.16)); }' +
+    '.joint-link .connection { transition: stroke 0.15s ease; }' +
+    '#minimap .joint-element { filter: none; }' +
+    '.joint-element .label { user-select: none; }';
+  document.head.appendChild(s);
+}
+
+function setupPaper() {
+  jointReady = true;
+  injectDiagramStyles();
+  var canvasEl = document.getElementById('canvas');
+  graph = new joint.dia.Graph({}, { cellNamespace: joint.shapes });
+  paper = new joint.dia.Paper({
+    el: canvasEl,
+    model: graph,
+    width: (canvasEl.offsetWidth || 800),
+    height: (canvasEl.offsetHeight || 600),
+    gridSize: 12,
+    drawGrid: { name: 'dot', args: { color: gridColor(), thickness: 1 } },
+    background: { color: diagramBackground() },
+    defaultLink: function() { return new joint.shapes.standard.Link({
+      interactive: { linkMove: false },
+      connector: { name: 'rounded', args: { radius: 14 } },
+    }); },
+    interactive: true,
+    validateConnection: function() { return true; },
+  });
+
+  paper.on('cell:pointerup', function(cellView) {
+    var model = cellView.model;
+    if (model.isLink()) return;
+    var pos = model.position();
+    var id = model.get('filePath');
+    if (id) {
+      vscode.postMessage({ type: 'nodeMoved', id: id, x: pos.x, y: pos.y });
+    }
+  });
+
+  paper.on('cell:pointerclick', function(cellView) {
+    var model = cellView.model;
+    if (model.isLink()) return;
+    selectNode(model);
+  });
+
+  paper.on('cell:pointerdblclick', function(cellView) {
+    var model = cellView.model;
+    if (model.isLink()) return;
+    selectNode(model);
+    var id = model.get('filePath');
+    if (id) {
+      vscode.postMessage({ type: 'addRelated', id: id });
+    }
+  });
+
+  paper.on('blank:pointerclick', function() {
+    deselectCurrentNode();
+  });
+
+  var btnFindRelated = document.getElementById('btnFindRelated');
+  if (btnFindRelated) {
+    btnFindRelated.onclick = function() {
+      if (selectedNodeId) {
+        vscode.postMessage({ type: 'addRelated', id: selectedNodeId });
+      }
+    };
+  }
+
+  var minimapEl = document.getElementById('minimap');
+  minimapPaper = new joint.dia.Paper({
+    el: minimapEl, model: graph, width: 180, height: 120,
+    interactive: false, gridSize: 1,
+    background: { color: 'transparent' },
+    elementView: joint.dia.ElementView,
+    linkView: joint.dia.LinkView,
+  });
+  minimapEl.style.pointerEvents = 'auto';
+
+  minimapPaper.on('blank:pointerdown', function(evt, x, y) {
+    var mainW = paper.getArea().width;
+    var mainH = paper.getArea().height;
+    var scaleX = 180 / mainW;
+    var scaleY = 120 / mainH;
+    var scale = Math.min(scaleX, scaleY);
+    var offX = (180 - mainW * scale) / 2;
+    var offY = (120 - mainH * scale) / 2;
+    panOffset.x = -(x - offX) / scale + 200;
+    panOffset.y = -(y - offY) / scale + 100;
+    paper.translate(panOffset.x, panOffset.y);
+    updateMinimapViewport();
+  });
+
+  paper.on('blank:pointermove', updateMinimapViewport);
+  paper.on('cell:pointerup', updateMinimapViewport);
+  paper.on('scale', updateMinimapViewport);
+  paper.on('translate', updateMinimapViewport);
+
+  // Canvas panning (drag background)
+  var panning = false;
+  var panStart = { x: 0, y: 0 };
+  var panOffset = { x: 0, y: 0 };
+  paper.on('blank:pointerdown', function(evt, x, y) {
+    if (evt.button !== 0) return;
+    panning = true;
+    panStart.x = evt.clientX;
+    panStart.y = evt.clientY;
+    canvasEl.style.cursor = 'grabbing';
+    evt.preventDefault();
+  });
+  document.addEventListener('mousemove', function(evt) {
+    if (!panning) return;
+    var dx = evt.clientX - panStart.x;
+    var dy = evt.clientY - panStart.y;
+    panStart.x = evt.clientX;
+    panStart.y = evt.clientY;
+    panOffset.x += dx;
+    panOffset.y += dy;
+    paper.translate(panOffset.x, panOffset.y);
+  });
+  document.addEventListener('mouseup', function() {
+    if (panning) {
+      panning = false;
+      canvasEl.style.cursor = 'grab';
+    }
+  });
+
+  var vpSvg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  vpSvg.setAttribute('class', 'viewport');
+  vpSvg.setAttribute('width', '60'); vpSvg.setAttribute('height', '40');
+  vpSvg.setAttribute('fill', 'rgba(0,0,0,0.08)');
+  vpSvg.setAttribute('stroke', 'rgba(0,0,0,0.3)');
+  vpSvg.setAttribute('stroke-width', '1');
+  minimapEl.querySelector('svg').appendChild(vpSvg);
+  viewportRect = vpSvg;
+
+  if (pendingRender) {
+    renderDiagram(pendingRender.nodes, pendingRender.relationships, showModifiers, showMethods, showProperties);
+    applyPositions(pendingRender.layoutNodes);
+    setTimeout(updateMinimapViewport, 100);
+    pendingRender = null;
+  }
+
+  new ResizeObserver(resizePaper).observe(document.getElementById('canvasWrap'));
+  window.addEventListener('resize', resizePaper);
+  initZoomWheel();
+}
+
+function initJoint() {
+  if (typeof joint === 'undefined') { setTimeout(initJoint, 100); return; }
+  if (document.getElementById('canvasWrap').clientHeight > 0) {
+    setupPaper();
+  } else {
+    requestAnimationFrame(function() {
+      // wait one more frame for layout
+      setTimeout(setupPaper, 50);
+    });
+  }
+}
+
+function updateMinimapViewport() {
+  if (!viewportRect || !paper || !minimapPaper) return;
+  var t = paper.translate();
+  var s = paper.scale();
+  var mainW = paper.getArea().width;
+  var mainH = paper.getArea().height;
+  var vpW = paper.getArea().width / s.sx;
+  var vpH = paper.getArea().height / s.sy;
+  var vpX = -t.tx / s.sx;
+  var vpY = -t.ty / s.sy;
+
+  var minimapW = 180;
+  var minimapH = 120;
+  var scaleX = minimapW / mainW;
+  var scaleY = minimapH / mainH;
+  var mScale = Math.min(scaleX, scaleY);
+  var offX = (minimapW - mainW * mScale) / 2;
+  var offY = (minimapH - mainH * mScale) / 2;
+
+  viewportRect.setAttribute('x', offX + vpX * mScale);
+  viewportRect.setAttribute('y', offY + vpY * mScale);
+  viewportRect.setAttribute('width', vpW * mScale);
+  viewportRect.setAttribute('height', vpH * mScale);
+}
+
+function renderDiagram(nodes, relationships, useModifiers, useMethods, useProperties) {
+  if (!graph || !jointReady) {
+    console.log('[UML] renderDiagram skipped - joint not ready');
+    return;
+  }
+  console.log('[UML] renderDiagram:', nodes.length, 'nodes,', relationships.length, 'relationships');
+  if (relationships.length > 0) {
+    console.log('[UML] relationships:', JSON.stringify(relationships));
+  }
+  lastRender = { nodes: nodes, relationships: relationships };
+  resizePaper();
+
+  // Remove ALL existing links (cheap to recreate)
+  var oldLinks = graph.getLinks();
+  for (var li = 0; li < oldLinks.length; li++) { oldLinks[li].remove(); }
+
+  // Build set of requested node IDs
+  var requestedNodeIds = {};
+  for (var i = 0; i < nodes.length; i++) { requestedNodeIds[nodes[i].id] = true; }
+
+  // Remove elements that are no longer selected or have wrong type
+  for (var key in nodeElements) {
+    if (!requestedNodeIds[key] || nodeElements[key].get('type') !== 'standard.Rectangle') {
+      nodeElements[key].remove();
+      delete nodeElements[key];
+    }
+  }
+
+  // Save positions of existing elements
+  var savedPositions = {};
+  for (var key in nodeElements) {
+    var pos = nodeElements[key].position();
+    savedPositions[key] = { x: pos.x, y: pos.y };
+  }
+
+  // Create or update elements
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+
+    var pal = nodePalette(node.kind, node.isAbstract);
+    var strokeColor = pal.stroke;
+    var textColor = pal.text;
+    var titleColor = pal.title;
+    var displayName = node.label;
+
+    // Title: with visibility symbol when modifiers enabled
+    var title = displayName;
+    if (useModifiers !== false && node.classModifiers) {
+      var firstWord = node.classModifiers.split(/\s+/)[0];
+      title = visSymbol(firstWord) + ' ' + displayName;
+    }
+    // Also strip visibility from methods/fields when modifiers off
+    var showVis = useModifiers !== false;
+
+    // Build body lines: stereotypes → fields → methods, with dynamic separators
+    var lines = [];
+
+    // Stereotypes
+    if (node.systemInterfaces && node.systemInterfaces.length > 0) {
+      for (var si = 0; si < node.systemInterfaces.length; si++) {
+        var parts = node.systemInterfaces[si].split('.');
+        var simpleName = parts[parts.length - 1];
+        lines.push({ text: '<<' + simpleName + '>>', fontSize: 10, fontStyle: 'italic', fill: '#888' });
+      }
+    }
+
+    // Fields
+    var fieldsStart = lines.length;
+    if (useProperties !== false && node.properties.length > 0) {
+      for (var pi = 0; pi < node.properties.length; pi++) {
+        var p = node.properties[pi];
+        var pvis = showVis ? visSymbol(p.visibility) + ' ' : '';
+        var pmods = p.modifierString ? p.modifierString + ' ' : '';
+        lines.push({ text: pvis + pmods + p.name + ': ' + p.type, fontSize: 11, fontStyle: 'normal', fill: textColor });
+      }
+    }
+
+    // Methods
+    var methodsStart = lines.length;
+    if (useMethods !== false && node.methods.length > 0) {
+      for (var mi = 0; mi < node.methods.length; mi++) {
+        var m = node.methods[mi];
+        var mvis = showVis ? visSymbol(m.visibility) + ' ' : '';
+        var mmods = m.modifierString ? m.modifierString + ' ' : '';
+        lines.push({ text: mvis + mmods + m.name + '(' + m.parameters.join(', ') + '): ' + m.returnType, fontSize: 11, fontStyle: 'normal', fill: textColor });
+      }
+    }
+
+    // Insert separators between non-empty adjacent sections
+    var sepLine = ''; // will be filled after width calc
+    function insSep(pos) {
+      lines.splice(pos, 0, { text: sepLine, fontSize: 10, fontStyle: 'normal', fill: '#ccc', isSep: true });
+    }
+    // Dividers: max 2 — between title and body, and between fields and methods
+    if (lines.length > 0) {
+      insSep(0);
+      fieldsStart++;
+      if (methodsStart > 0) methodsStart++;
+    }
+    if (fieldsStart > 0 && methodsStart > fieldsStart && lines.length > methodsStart) {
+      insSep(methodsStart);
+      methodsStart++;
+    }
+
+    // Setup text measurement canvas context
+    if (!window._measureCtx) {
+      var mc = document.createElement('canvas');
+      window._measureCtx = mc.getContext('2d');
+    }
+    var mCtx = window._measureCtx;
+
+    function measureText(str, isBold) {
+      if (!mCtx) return (str ? str.length * 7.5 : 0);
+      mCtx.font = isBold ? 'bold 12px sans-serif' : '11px sans-serif';
+      return mCtx.measureText(str || '').width;
+    }
+
+    // Shorten line if it exceeds max allowable width (500px) so it never overflows
+    function fitLine(text, maxWidth) {
+      if (!text || measureText(text, false) <= maxWidth) return text;
+      var p1 = text.indexOf('(');
+      var p2 = text.lastIndexOf(')');
+      if (p1 > 0 && p2 > p1) {
+        var pre = text.substring(0, p1 + 1);
+        var post = text.substring(p2);
+        var attempt = pre + '...' + post;
+        if (measureText(attempt, false) <= maxWidth) return attempt;
+      }
+      var cur = text;
+      while (cur.length > 10 && measureText(cur + '...', false) > maxWidth) {
+        cur = cur.substring(0, cur.length - 2);
+      }
+      return cur + '...';
+    }
+
+    // Format lines and calculate max width
+    var maxLineWidth = measureText(title, true);
+    for (var li = 0; li < lines.length; li++) {
+      if (!lines[li].isSep) {
+        lines[li].text = fitLine(lines[li].text, 500);
+        var lw = measureText(lines[li].text, false);
+        if (lw > maxLineWidth) maxLineWidth = lw;
+      }
+    }
+
+    // Proportional width: min 220px, max 560px, with 36px total side padding (12px left, 24px right)
+    var nodeW = Math.max(220, Math.min(560, Math.ceil(maxLineWidth + 36)));
+
+    // Fill separator lines with ─ characters to fit nodeW exactly
+    var singleCharW = measureText('─', false) || 7.2;
+    var targetSepW = nodeW - 32;
+    var sepCount = Math.max(4, Math.floor(targetSepW / singleCharW));
+    var sepText = '─'.repeat(sepCount);
+    for (var li = 0; li < lines.length; li++) {
+      if (lines[li].isSep) lines[li].text = sepText;
+    }
+
+    // Calculate height: title + each line with 18px line height + 24px padding
+    var LINE_HEIGHT = 18;
+    var totalLinesCount = 1 + lines.length;
+    var nodeH = Math.ceil(20 + totalLinesCount * LINE_HEIGHT + 14);
+
+    // Build label text
+    var bodyLines = [];
+    for (var li = 0; li < lines.length; li++) {
+      bodyLines.push(lines[li].text);
+    }
+    var bodyText = bodyLines.join('\n');
+    var fullLabel = title;
+    if (bodyText) {
+      fullLabel += '\n' + bodyText;
+    }
+
+    var savedPos = savedPositions[node.id];
+    var posX = savedPos ? savedPos.x : 100 + Math.random() * 200;
+    var posY = savedPos ? savedPos.y : 100 + Math.random() * 200;
+
+    if (nodeElements[node.id]) {
+      nodeElements[node.id].remove();
+    }
+
+    var el = new joint.shapes.standard.Rectangle({
+      position: { x: posX, y: posY },
+      size: { width: nodeW, height: nodeH },
+      attrs: {
+        body: { fill: pal.top, stroke: strokeColor, 'stroke-width': 1.6, rx: 10, ry: 10 },
+        label: {
+          text: fullLabel,
+          'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          'font-size': 11,
+          fill: textColor,
+          textAnchor: 'start',
+          textVerticalAnchor: 'top',
+          x: 14,
+          y: 12,
+          lineHeight: LINE_HEIGHT
+        },
+      },
+      filePath: node.id,
+      nodeKind: node.kind,
+      nodeLabel: node.label,
+    });
+    graph.addCell(el);
+    nodeElements[node.id] = el;
+  }
+
+  // Create links
+  var cells = [];
+  for (var j = 0; j < relationships.length; j++) {
+    var rel = relationships[j];
+    var source = nodeElements[rel.sourceId];
+    var target = nodeElements[rel.targetId];
+    if (!source || !target) {
+      console.log('[UML] link skipped - source or target not found:', rel.kind, rel.sourceId, '→', rel.targetId);
+      continue;
+    }
+
+    var s = arrowStyle(rel.kind);
+    var link = new joint.shapes.standard.Link({
+      source: { id: source.id },
+      target: { id: target.id },
+    });
+    link.attr('line/stroke', s.conn.stroke);
+    link.attr('line/strokeWidth', s.conn['stroke-width']);
+    if (s.conn['stroke-dasharray'] && s.conn['stroke-dasharray'] !== 'none') {
+      link.attr('line/strokeDasharray', s.conn['stroke-dasharray']);
+    }
+    link.attr('line/targetMarker', {
+      type: 'path',
+      d: s.marker.d,
+      fill: s.marker.fill,
+      stroke: s.marker.stroke,
+      strokeWidth: s.marker['stroke-width'],
+    });
+    if (s.label) {
+      link.label(0, { position: 0.5, attrs: { text: { text: s.label, fill: s.labelColor, 'font-size': 10 } } });
+    }
+    cells.push(link);
+  }
+
+  if (cells.length > 0) {
+    try { graph.addCells(cells); } catch (e) { console.log('[UML] addCells error:', e); }
+  }
+
+  currentNodesCount = nodes.length;
+  document.getElementById('nodeCount').textContent = nodes.length + ' nodes';
+  updateEmptyState(nodes.length);
+  if (selectedNodeId && nodeElements[selectedNodeId]) {
+    selectNode(nodeElements[selectedNodeId]);
+  } else {
+    deselectCurrentNode();
+  }
+  var paperSvg = paper.el.querySelector('svg');
+  console.log('[UML] render complete: graph:', graph.getElements().length, 'el,', graph.getLinks().length, 'links, paper:', paperSvg?.clientWidth, 'x', paperSvg?.clientHeight, 'savedPos:', Object.keys(savedPositions).length);
+
+  if (minimapPaper) {
+    minimapPaper.scaleContentToFit({ padding: 10 });
+    setTimeout(updateMinimapViewport, 50);
+  }
+}
+
+function applyPositions(layoutNodes) {
+  if (!layoutNodes) return;
+  var keys = Object.keys(layoutNodes);
+  for (var i = 0; i < keys.length; i++) {
+    var el = nodeElements[keys[i]];
+    if (el) el.position(layoutNodes[keys[i]].x, layoutNodes[keys[i]].y);
+  }
+}
+
+function autoLayout() {
+  if (!graph) return;
+  var elements = graph.getElements();
+  if (elements.length === 0) return;
+  var cols = Math.ceil(Math.sqrt(elements.length));
+
+  var maxW = 220;
+  var maxH = 150;
+  for (var k = 0; k < elements.length; k++) {
+    var sz = elements[k].size();
+    if (sz.width > maxW) maxW = sz.width;
+    if (sz.height > maxH) maxH = sz.height;
+  }
+  var spacingX = maxW + 50;
+  var spacingY = maxH + 40;
+  var margin = 60;
+
+  for (var i = 0; i < elements.length; i++) {
+    var col = i % cols;
+    var row = Math.floor(i / cols);
+    elements[i].position(margin + col * spacingX, margin + row * spacingY);
+    var id = elements[i].get('filePath');
+    if (id) {
+      var pos = elements[i].position();
+      vscode.postMessage({ type: 'nodeMoved', id: id, x: pos.x, y: pos.y });
+    }
+  }
+  updateMinimapViewport();
+}
+
+function renderResourceList(items) {
+  allItems = items;
+  var list = document.getElementById('resourceList');
+  list.innerHTML = '';
+
+  var apex = items.filter(function(i) { return i.sourceType === 'APEX'; });
+  var triggers = items.filter(function(i) { return i.sourceType === 'TRIGGER'; });
+  var lwc = items.filter(function(i) { return i.sourceType === 'LWC'; });
+
+  function addSection(title, sectionItems, badgeClass) {
+    var label = document.createElement('div');
+    label.className = 'section-label';
+    label.textContent = title + ' (' + sectionItems.length + ')';
+    list.appendChild(label);
+
+    var actions = document.createElement('div');
+    actions.className = 'section-actions';
+    var selAll = document.createElement('button');
+    selAll.textContent = 'Select All';
+    selAll.onclick = function() {
+      var ids = sectionItems.map(function(i) { return i.id; });
+      ids.forEach(function(id) { selectedFiles.add(id); });
+      refreshCheckboxes();
+      applyRowFilter();
+      vscode.postMessage({ type: 'toggleItems', ids: ids, checked: true });
+    };
+    var clrAll = document.createElement('button');
+    clrAll.textContent = 'Clear All';
+    clrAll.onclick = function() {
+      var ids = sectionItems.map(function(i) { return i.id; });
+      ids.forEach(function(id) { selectedFiles.delete(id); });
+      refreshCheckboxes();
+      applyRowFilter();
+      vscode.postMessage({ type: 'toggleItems', ids: ids, checked: false });
+    };
+    actions.appendChild(selAll);
+    actions.appendChild(clrAll);
+    list.appendChild(actions);
+
+    for (var si = 0; si < sectionItems.length; si++) {
+      (function(item) {
+        var row = document.createElement('div');
+        row.className = 'item-row';
+        row.dataset.filePath = item.id;
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = selectedFiles.has(item.id);
+        cb.onchange = function() {
+          var checked = cb.checked;
+          if (checked) selectedFiles.add(item.id);
+          else selectedFiles.delete(item.id);
+          console.log('[UML] checkbox:', item.label, checked ? 'checked' : 'unchecked', 'total:', selectedFiles.size);
+          document.getElementById('selectedCount').textContent = selectedFiles.size + ' selected';
+          vscode.postMessage({ type: 'toggleItem', id: item.id, checked: checked });
+          applyRowFilter();
+        };
+        var labelSpan = document.createElement('span');
+        labelSpan.className = 'label';
+        labelSpan.textContent = item.label;
+        var badge = document.createElement('span');
+        badge.className = 'badge ' + badgeClass;
+        badge.textContent = item.sourceType;
+        row.appendChild(cb);
+        row.appendChild(labelSpan);
+        row.appendChild(badge);
+        list.appendChild(row);
+      })(sectionItems[si]);
+    }
+  }
+
+  addSection('Apex Classes', apex, 'badge-APEX');
+  addSection('Triggers', triggers, 'badge-TRIGGER');
+  addSection('LWC Components', lwc, 'badge-LWC');
+  document.getElementById('selectedCount').textContent = selectedFiles.size + ' selected';
+}
+
+function refreshCheckboxes() {
+  var rows = document.querySelectorAll('.item-row');
+  for (var i = 0; i < rows.length; i++) {
+    var cb = rows[i].querySelector('input[type="checkbox"]');
+    var fp = rows[i].dataset.filePath;
+    if (cb && fp) cb.checked = selectedFiles.has(fp);
+  }
+  document.getElementById('selectedCount').textContent = selectedFiles.size + ' selected';
+}
+
+function applyRowFilter() {
+  var q = document.getElementById('search').value.toLowerCase();
+  var rows = document.querySelectorAll('.item-row');
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var label = row.querySelector('.label');
+    if (!label) { row.style.display = 'none'; continue; }
+    var textOk = label.textContent.toLowerCase().includes(q);
+    var tagOk = true;
+    if (activeTag) {
+      var id = row.dataset.filePath;
+      var inTag = tagMap[activeTag] && tagMap[activeTag].indexOf(id) >= 0;
+      tagOk = inTag && selectedFiles.has(id);
+    }
+    row.style.display = (textOk && tagOk) ? '' : 'none';
+  }
+}
+
+document.getElementById('search').addEventListener('input', applyRowFilter);
+
+document.getElementById('tagHeader').onclick = function() {
+  var body = document.getElementById('tagBody');
+  var chev = document.getElementById('tagChevron');
+  var hidden = body.classList.toggle('hidden');
+  chev.classList.toggle('open', !hidden);
+};
+
+document.getElementById('btnTagApply').onclick = function() {
+  applyTag(document.getElementById('tagSearch').value);
+};
+
+document.getElementById('tagSearch').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    applyTag(this.value);
+  }
+});
+
+document.getElementById('chipX').onclick = function() { clearTag(); };
+
+document.getElementById('btnAutoLayout').onclick = autoLayout;
+
+document.getElementById('btnToggleLegend').onclick = function() {
+  document.getElementById('legend').classList.toggle('visible');
+};
+
+// Zoom controls
+var currentZoom = 1;
+function applyZoom() {
+  if (!paper) return;
+  var el = document.getElementById('canvas');
+  var cx = el.clientWidth / 2;
+  var cy = el.clientHeight / 2;
+  paper.scale(currentZoom, currentZoom, cx, cy);
+  document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
+  updateMinimapViewport();
+}
+document.getElementById('btnZoomIn').onclick = function() {
+  currentZoom = Math.min(currentZoom * 1.2, 5);
+  applyZoom();
+};
+document.getElementById('btnZoomOut').onclick = function() {
+  currentZoom = Math.max(currentZoom / 1.2, 0.1);
+  applyZoom();
+};
+document.getElementById('btnZoomReset').onclick = function() {
+  currentZoom = 1;
+  panOffset = { x: 0, y: 0 };
+  paper.scale(1, 1);
+  paper.translate(0, 0);
+  document.getElementById('zoomLevel').textContent = '100%';
+  updateMinimapViewport();
+};
+
+document.getElementById('chkProperties').addEventListener('change', function(e) {
+  showProperties = e.target.checked;
+  vscode.postMessage({ type: 'updateViewOptions', showModifiers: showModifiers, showMethods: showMethods, showProperties: showProperties });
+});
+
+document.getElementById('chkModifiers').addEventListener('change', function(e) {
+  showModifiers = e.target.checked;
+  vscode.postMessage({ type: 'updateViewOptions', showModifiers: showModifiers, showMethods: showMethods, showProperties: showProperties });
+});
+
+document.getElementById('chkMethods').addEventListener('change', function(e) {
+  showMethods = e.target.checked;
+  vscode.postMessage({ type: 'updateViewOptions', showModifiers: showModifiers, showMethods: showMethods, showProperties: showProperties });
+});
+
+// Scroll wheel zoom
+function initZoomWheel() {
+  if (!paper) { setTimeout(initZoomWheel, 200); return; }
+  var el = paper.el;
+  el.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+    currentZoom = Math.max(0.1, Math.min(5, currentZoom * delta));
+    applyZoom();
+  }, { passive: false });
+}
+setTimeout(initZoomWheel, 500);
+
+window.addEventListener('message', function(event) {
+  var msg = event.data;
+  if (msg.type === 'init') {
+    selectedFiles = new Set(msg.selectedFiles || []);
+    renderResourceList(msg.items);
+    applyTheme(msg.theme || 'light');
+    tagMap = msg.tagMap || {};
+    renderTagList();
+    showModifiers = msg.showModifiers !== false;
+    showMethods = msg.showMethods !== false;
+    showProperties = msg.showProperties !== false;
+    document.getElementById('chkModifiers').checked = showModifiers;
+    document.getElementById('chkMethods').checked = showMethods;
+    document.getElementById('chkProperties').checked = showProperties;
+    if (msg.nodes && msg.relationships && msg.nodes.length > 0) {
+      if (!jointReady) {
+        pendingRender = { nodes: msg.nodes, relationships: msg.relationships, layoutNodes: msg.layoutNodes };
+      } else {
+        renderDiagram(msg.nodes, msg.relationships, showModifiers, showMethods, showProperties);
+        applyPositions(msg.layoutNodes);
+        setTimeout(updateMinimapViewport, 100);
+      }
+    }
+    applyRowFilter();
+  } else if (msg.type === 'render') {
+    console.log('[UML] render received:', msg.nodes?.length, 'nodes,', msg.relationships?.length, 'rels');
+    showModifiers = msg.showModifiers !== false;
+    showMethods = msg.showMethods !== false;
+    showProperties = msg.showProperties !== false;
+    document.getElementById('chkModifiers').checked = showModifiers;
+    document.getElementById('chkMethods').checked = showMethods;
+    document.getElementById('chkProperties').checked = showProperties;
+    if (msg.addedIds) {
+      for (var ai = 0; ai < msg.addedIds.length; ai++) { selectedFiles.add(msg.addedIds[ai]); }
+      refreshCheckboxes();
+      applyRowFilter();
+    }
+    if (!jointReady) {
+      console.log('[UML] JointJS not ready, queuing render');
+      pendingRender = { nodes: msg.nodes, relationships: msg.relationships, layoutNodes: msg.layoutNodes };
+    } else {
+      renderDiagram(msg.nodes, msg.relationships, showModifiers, showMethods, showProperties);
+      applyPositions(msg.layoutNodes);
+      setTimeout(updateMinimapViewport, 100);
+    }
+  } else if (msg.type === 'theme') {
+    applyTheme(msg.theme);
+  }
+});
+
+initJoint();
+</script>
+</body>
+</html>
